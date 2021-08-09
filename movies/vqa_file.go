@@ -54,13 +54,10 @@ type VqaFile struct {
 	dec *VqaDecoder
 }
 
-func OpenMovie(filename string) (*VqaFile, error) {
+func OpenMovieWithHandle(fileHandle *os.File) (*VqaFile, error) {
 	var vqa *VqaFile = new(VqaFile)
+	vqa.fileHandle = fileHandle
 	var err error = nil
-	vqa.fileHandle, err = os.Open(filename)
-	if err != nil {
-		return nil, vqa.stickError(err)
-	}
 	err = vqa.readChunkHeader()
 	if err != nil || string(vqa.CurrentChunk.Id[:]) != vqaFormId {
 		return nil, vqa.stickError(errors.New("VQA file unsupported"))
@@ -79,6 +76,14 @@ func OpenMovie(filename string) (*VqaFile, error) {
 	}
 
 	return vqa, nil
+}
+
+func OpenMovie(filename string) (*VqaFile, error) {
+	fileHandle, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	return OpenMovieWithHandle(fileHandle)
 }
 
 func (vqa *VqaFile) stickError(err error) error {
@@ -211,7 +216,7 @@ func (vqa *VqaFile) DecodeNextFrame() (frame *image.NRGBA, samples []wav.Sample,
 			updated, newFrame := vqa.decodeVqfChunk(data)
 			vqa.readChunkHeader()
 			if updated {
-				
+
 				return &newFrame, samples, nil
 			}
 		} else {
