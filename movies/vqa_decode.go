@@ -43,9 +43,6 @@ func (vqa *VqaFile) decodeSnd2Chunk(data []byte) [][2]int16 {
 		var samples [][2]int16
 		for _, smpl := range out {
 			var sample [2]int16
-			if int(int16(smpl)) != smpl {
-				panic("Sample should not have data in higher int!")
-			}
 			sample[0] = int16(smpl)
 			samples = append(samples, sample)
 		}
@@ -54,6 +51,13 @@ func (vqa *VqaFile) decodeSnd2Chunk(data []byte) [][2]int16 {
 	var halfCnt = len(data) / 2
 	var left = data[:halfCnt]
 	var right = data[halfCnt:]
+	// Nox have a weird notion of endianness... INSIDE a byte, seriously?
+	for idx := range left {
+		left[idx] = ((left[idx] & 0xf0) >> 4) + ((left[idx] & 0x0f) << 4)
+	}
+	for idx := range right {
+		right[idx] = ((right[idx] & 0xf0) >> 4) + ((right[idx] & 0x0f) << 4)
+	}
 	var leftOut []int
 	vqa.dec.adpcmLeftDec.Decode(left, &leftOut)
 	var rightOut []int
@@ -61,12 +65,6 @@ func (vqa *VqaFile) decodeSnd2Chunk(data []byte) [][2]int16 {
 	var samples = make([][2]int16, len(leftOut))
 	for idx := range leftOut {
 		var sample [2]int16
-		if int(int16(leftOut[idx])) != leftOut[idx] {
-			panic("Sample should not have data in higher int!")
-		}
-		if int(int16(rightOut[idx])) != rightOut[idx] {
-			panic("Sample should not have data in higher int!")
-		}
 		sample[0] = int16(leftOut[idx])
 		sample[1] = int16(rightOut[idx])
 		samples[idx] = sample
