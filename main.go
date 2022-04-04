@@ -12,7 +12,8 @@ import (
 func main() {
 	var filename = "noxlogo.VQA"
 	println(filename)
-	vqa, err := movies.OpenMovie(filename)
+	vqa, handle, err := movies.OpenMovie(filename)
+	defer handle.Close()
 	if err != nil {
 		println(err.Error())
 	}

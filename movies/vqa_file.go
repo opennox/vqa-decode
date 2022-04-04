@@ -48,21 +48,21 @@ type VqaFile struct {
 	Header       VqaHeader
 	CurrentChunk VqaChunkHeader
 
-	fileHandle *os.File
-	lastError  error
+	handle    io.ReadSeeker
+	lastError error
 
 	dec *VqaDecoder
 }
 
-func OpenMovieWithHandle(fileHandle *os.File) (*VqaFile, error) {
+func OpenMovieWithHandle(handle io.ReadSeeker) (*VqaFile, error) {
 	var vqa *VqaFile = new(VqaFile)
-	vqa.fileHandle = fileHandle
+	vqa.handle = handle
 	var err error = nil
 	err = vqa.readChunkHeader()
 	if err != nil || string(vqa.CurrentChunk.Id[:]) != vqaFormId {
 		return nil, vqa.stickError(errors.New("VQA file unsupported"))
 	}
-	err = binary.Read(vqa.fileHandle, binary.LittleEndian, &vqa.Header)
+	err = binary.Read(vqa.handle, binary.LittleEndian, &vqa.Header)
 	if err != nil || string(vqa.Header.Id[:]) != vqaFileId {
 		return nil, vqa.stickError(errors.New("VQA file unsupported"))
 	}
@@ -78,12 +78,13 @@ func OpenMovieWithHandle(fileHandle *os.File) (*VqaFile, error) {
 	return vqa, nil
 }
 
-func OpenMovie(filename string) (*VqaFile, error) {
+func OpenMovie(filename string) (*VqaFile, io.Closer, error) {
 	fileHandle, err := os.Open(filename)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return OpenMovieWithHandle(fileHandle)
+	res, err := OpenMovieWithHandle(fileHandle)
+	return res, fileHandle, err
 }
 
 func (vqa *VqaFile) stickError(err error) error {
@@ -92,18 +93,18 @@ func (vqa *VqaFile) stickError(err error) error {
 }
 
 func (vqa *VqaFile) readChunkHeader() error {
-	curPos, err := vqa.fileHandle.Seek(0, io.SeekCurrent)
+	curPos, err := vqa.handle.Seek(0, io.SeekCurrent)
 	if err != nil {
 		return vqa.stickError(err)
 	}
 	if curPos&1 == 1 {
-		_, err = vqa.fileHandle.Seek(1, io.SeekCurrent)
+		_, err = vqa.handle.Seek(1, io.SeekCurrent)
 		if err != nil {
 			return vqa.stickError(err)
 		}
 	}
 
-	err = binary.Read(vqa.fileHandle, binary.BigEndian, &vqa.CurrentChunk)
+	err = binary.Read(vqa.handle, binary.BigEndian, &vqa.CurrentChunk)
 	if err != nil {
 		return vqa.stickError(err)
 	}
@@ -111,7 +112,7 @@ func (vqa *VqaFile) readChunkHeader() error {
 }
 
 func (vqa *VqaFile) skipChunk() error {
-	_, err := vqa.fileHandle.Seek(int64(vqa.CurrentChunk.Size), io.SeekCurrent)
+	_, err := vqa.handle.Seek(int64(vqa.CurrentChunk.Size), io.SeekCurrent)
 	if err != nil {
 		return vqa.stickError(err)
 	}
@@ -126,7 +127,11 @@ func (vqa *VqaFile) DumpAudio() error {
 	if vqa.lastError != nil {
 		return vqa.lastError
 	}
-	var filename = vqa.fileHandle.Name()
+	var filename = "./videoname.vqa"
+	fileHandle, ok := vqa.handle.(*os.File)
+	if ok {
+		filename = fileHandle.Name()
+	}
 	var filepart = filename[:len(filename)-3]
 	var soundfile = filepart + "wav"
 	println(soundfile)
@@ -134,7 +139,7 @@ func (vqa *VqaFile) DumpAudio() error {
 	for {
 		if string(vqa.CurrentChunk.Id[:]) == vqaSnd2Id {
 			var data = make([]byte, vqa.CurrentChunk.Size)
-			_, err := vqa.fileHandle.Read(data)
+			_, err := vqa.handle.Read(data)
 			if err != nil {
 				break
 			}
@@ -159,7 +164,11 @@ func (vqa *VqaFile) DumpAudio() error {
 }
 
 func (vqa *VqaFile) DumpVideo() error {
-	var filename = vqa.fileHandle.Name()
+	var filename = "./videoname.vqa"
+	fileHandle, ok := vqa.handle.(*os.File)
+	if ok {
+		filename = fileHandle.Name()
+	}
 	var foldername = filename[:len(filename)-4]
 	os.Mkdir(foldername, os.ModeDir)
 	var frameId = 0
@@ -167,7 +176,7 @@ func (vqa *VqaFile) DumpVideo() error {
 		var filename = fmt.Sprintf("%s/%05d.png", foldername, frameId)
 		if string(vqa.CurrentChunk.Id[:]) == vqaVqfrId || string(vqa.CurrentChunk.Id[:]) == vqaVqflId {
 			var data = make([]byte, vqa.CurrentChunk.Size)
-			_, err := vqa.fileHandle.Read(data)
+			_, err := vqa.handle.Read(data)
 			if err != nil {
 				break
 			}
@@ -197,7 +206,7 @@ func (vqa *VqaFile) DecodeNextFrame() (frame *image.NRGBA, samples [][2]int16, e
 	for {
 		if string(vqa.CurrentChunk.Id[:]) == vqaSnd2Id {
 			var data = make([]byte, vqa.CurrentChunk.Size)
-			_, err := vqa.fileHandle.Read(data)
+			_, err := vqa.handle.Read(data)
 			if err != nil {
 				return nil, samples, vqa.stickError(err)
 			}
@@ -209,7 +218,7 @@ func (vqa *VqaFile) DecodeNextFrame() (frame *image.NRGBA, samples [][2]int16, e
 			}
 		} else if string(vqa.CurrentChunk.Id[:]) == vqaVqfrId || string(vqa.CurrentChunk.Id[:]) == vqaVqflId {
 			var data = make([]byte, vqa.CurrentChunk.Size)
-			_, err := vqa.fileHandle.Read(data)
+			_, err := vqa.handle.Read(data)
 			if err != nil {
 				return nil, samples, vqa.stickError(err)
 			}
