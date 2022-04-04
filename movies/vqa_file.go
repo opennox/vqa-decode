@@ -130,7 +130,7 @@ func (vqa *VqaFile) DumpAudio() error {
 	var filepart = filename[:len(filename)-3]
 	var soundfile = filepart + "wav"
 	println(soundfile)
-	var samples []wav.Sample
+	var samples [][2]int16
 	for {
 		if string(vqa.CurrentChunk.Id[:]) == vqaSnd2Id {
 			var data = make([]byte, vqa.CurrentChunk.Size)
@@ -153,7 +153,7 @@ func (vqa *VqaFile) DumpAudio() error {
 	}
 	out, _ := os.Create(soundfile)
 	var writer = wav.NewWriter(out, uint32(len(samples)), uint16(vqa.Header.ChannelsCount), uint32(vqa.Header.SampleRate), uint16(vqa.Header.BitsPerSample))
-	writer.WriteSamples(samples)
+	writer.WriteSamples(ConvertSamples(samples))
 	out.Close()
 	return nil
 }
@@ -193,7 +193,7 @@ func (vqa *VqaFile) DumpVideo() error {
 	return nil
 }
 
-func (vqa *VqaFile) DecodeNextFrame() (frame *image.NRGBA, samples []wav.Sample, err error) {
+func (vqa *VqaFile) DecodeNextFrame() (frame *image.NRGBA, samples [][2]int16, err error) {
 	for {
 		if string(vqa.CurrentChunk.Id[:]) == vqaSnd2Id {
 			var data = make([]byte, vqa.CurrentChunk.Size)
@@ -226,4 +226,14 @@ func (vqa *VqaFile) DecodeNextFrame() (frame *image.NRGBA, samples []wav.Sample,
 			}
 		}
 	}
+}
+
+func ConvertSamples(samples [][2]int16) []wav.Sample {
+	res := make([]wav.Sample, len(samples))
+	for i := 0; i < len(samples); i++ {
+		res[i] = wav.Sample{
+			Values: [2]int{int(samples[i][0]), int(samples[i][1])},
+		}
+	}
+	return res
 }

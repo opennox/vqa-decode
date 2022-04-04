@@ -29,7 +29,7 @@ func main() {
 		if err != nil {
 			break
 		}
-		allSamples = append(allSamples, samples...)
+		allSamples = append(allSamples, movies.ConvertSamples(samples)...)
 		if frame != nil {
 			var frameName = fmt.Sprintf("%s/%05d.png", frameFolderName, frameId)
 			frameFile, _ := os.Create(frameName)

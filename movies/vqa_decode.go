@@ -11,7 +11,6 @@ import (
 
 	"github.com/JoshuaDoes/adpcm-go"
 	"github.com/noxworld-dev/vqa-decode/algo"
-	"github.com/youpy/go-wav"
 )
 
 type VqaDecoder struct {
@@ -37,14 +36,17 @@ func (vqa *VqaFile) initDecoder() {
 	draw.Draw(vqa.dec.curFrame, vqa.dec.curFrame.Bounds(), image.Black, image.Point{}, draw.Src)
 }
 
-func (vqa *VqaFile) decodeSnd2Chunk(data []byte) []wav.Sample {
+func (vqa *VqaFile) decodeSnd2Chunk(data []byte) [][2]int16 {
 	if vqa.Header.ChannelsCount == 1 {
 		var out []int
 		vqa.dec.adpcmLeftDec.Decode(data, &out)
-		var samples []wav.Sample
+		var samples [][2]int16
 		for _, smpl := range out {
-			var sample wav.Sample
-			sample.Values[0] = smpl
+			var sample [2]int16
+			if int(int16(smpl)) != smpl {
+				panic("Sample should not have data in higher int!")
+			}
+			sample[0] = int16(smpl)
 			samples = append(samples, sample)
 		}
 		return samples
@@ -56,11 +58,17 @@ func (vqa *VqaFile) decodeSnd2Chunk(data []byte) []wav.Sample {
 	vqa.dec.adpcmLeftDec.Decode(left, &leftOut)
 	var rightOut []int
 	vqa.dec.adpcmRightDec.Decode(right, &rightOut)
-	var samples = make([]wav.Sample, len(leftOut))
+	var samples = make([][2]int16, len(leftOut))
 	for idx := range leftOut {
-		var sample wav.Sample
-		sample.Values[0] = leftOut[idx]
-		sample.Values[1] = rightOut[idx]
+		var sample [2]int16
+		if int(int16(leftOut[idx])) != leftOut[idx] {
+			panic("Sample should not have data in higher int!")
+		}
+		if int(int16(rightOut[idx])) != rightOut[idx] {
+			panic("Sample should not have data in higher int!")
+		}
+		sample[0] = int16(leftOut[idx])
+		sample[1] = int16(rightOut[idx])
 		samples[idx] = sample
 	}
 	return samples
