@@ -83,7 +83,7 @@ func DecodeFormat80(src []byte, relative bool) []byte {
 				var count = int(count3) + 3
 				if count3 == 0x3F {
 					var scount uint16
-					if binary.Read(srcBuf, binary.BigEndian, &scount) != nil {
+					if binary.Read(srcBuf, binary.LittleEndian, &scount) != nil {
 						break
 					}
 					count = int(scount)
