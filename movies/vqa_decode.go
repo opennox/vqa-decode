@@ -10,7 +10,8 @@ import (
 	"math"
 
 	"github.com/JoshuaDoes/adpcm-go"
-	"github.com/noxworld-dev/vqa-decode/algo"
+
+	"github.com/opennox/vqa-decode/algo"
 )
 
 type VqaDecoder struct {

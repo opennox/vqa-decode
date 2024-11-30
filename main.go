@@ -5,8 +5,9 @@ import (
 	"image/png"
 	"os"
 
-	"github.com/noxworld-dev/vqa-decode/movies"
 	"github.com/youpy/go-wav"
+
+	"github.com/opennox/vqa-decode/movies"
 )
 
 func main() {
